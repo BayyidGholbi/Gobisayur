@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Aplikasi Mlijo - Cek & Update Harga/Stok</title>
+  <style>
+    :root{--accent:#2b8aef;--muted:#666}
+    body{font-family:Inter, system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial; margin:0; padding:16px; background:#f6f8fb; color:#111}
+    .container{max-width:980px;margin:0 auto;background:#fff;padding:16px;border-radius:10px;box-shadow:0 6px 20px rgba(20,30,50,0.08)}
+    h1{margin:0 0 8px;font-size:20px}
+    p.lead{margin:0 0 16px;color:var(--muted)}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{padding:8px;border-bottom:1px solid #eee;text-align:left;font-size:14px}
+    th{background:#fafbfd;position:sticky;top:0}
+    input[type="number"], input[type="text"]{width:100%;box-sizing:border-box;padding:6px;border-radius:6px;border:1px solid #ddd}
+    button{background:var(--accent);color:#fff;border:0;padding:8px 12px;border-radius:8px;cursor:pointer}
+    .muted{color:var(--muted);font-size:13px}
+    .row{display:flex;gap:8px;flex-wrap:wrap}
+    .col{flex:1}
+    .actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+    .small{padding:6px 8px;font-size:13px}
+    .danger{background:#e24b4b}
+    .ghost{background:transparent;color:var(--accent);border:1px solid #e6f0ff}
+    .checkbox{width:18px;height:18px}
+    @media (max-width:720px){th,td{font-size:13px;padding:6px} h1{font-size:18px}}
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Aplikasi Mlijo — Cek & Update Harga/Stok</h1>
+    <p class="lead">Versi sederhana: centang barang terjual, update harga/stok, ekspor/impor data. Simpan otomatis di perangkat. Untuk online, upload file HTML ini ke GitHub Pages / Netlify.</p>
+
+    <div class="row">
+      <div class="col">
+        <label class="muted">Filter / Cari</label>
+        <input id="search" type="text" placeholder="Cari nama barang atau kategori..." />
+      </div>
+      <div style="width:140px">
+        <label class="muted">Tampilkan Hari</label>
+        <input id="date" type="date" />
+      </div>
+    </div>
+
+    <table id="tbl">
+      <thead>
+        <tr>
+          <th style="width:36px">#</th>
+          <th>Kategori</th>
+          <th>Nama Barang</th>
+          <th style="width:90px">Satuan</th>
+          <th style="width:110px">Harga (Rp)</th>
+          <th style="width:110px">Stok Awal</th>
+          <th style="width:110px">Stok Terjual</th>
+          <th style="width:110px">Stok Akhir</th>
+          <th style="width:80px">Terjual?</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+
+    <div class="actions">
+      <button id="addRow" class="small">➕ Tambah Barang</button>
+      <button id="save" class="small ghost">Simpan</button>
+      <button id="export" class="small">Ekspor JSON</button>
+      <button id="importBtn" class="small ghost">Impor JSON</button>
+      <button id="reset" class="small danger">Reset Data</button>
+      <input id="fileInput" type="file" accept="application/json" style="display:none" />
+    </div>
+
+    <div style="margin-top:12px;display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <div class="muted">Total Penjualan Hari Ini: <strong id="totalSales">Rp0</strong></div>
+      <div class="muted">Jumlah Item Terjual: <strong id="countSold">0</strong></div>
+    </div>
+
+    <p class="muted" style="margin-top:12px">Catatan: data disimpan di browser (localStorage). Untuk membuat "online", upload file ini ke GitHub Pages, Netlify, atau host statis lain.</p>
+  </div>
+
+<script>
+// Default data sample
+const DEFAULT = [
+  {kategori:'Sayur', nama:'Bayam', satuan:'Ikat', harga:3000, stokAwal:20, stokTerjual:0},
+  {kategori:'Sayur', nama:'Kangkung', satuan:'Ikat', harga:3000, stokAwal:20, stokTerjual:0},
+  {kategori:'Sayur', nama:'Wortel', satuan:'Kg', harga:10000, stokAwal:5, stokTerjual:0},
+  {kategori:'Sayur', nama:'Kol', satuan:'Kg', harga:8000, stokAwal:5, stokTerjual:0},
+  {kategori:'Bumbu Dapur', nama:'Cabai Rawit', satuan:'Kg', harga:50000, stokAwal:2, stokTerjual:0},
+  {kategori:'Bumbu Dapur', nama:'Bawang Merah', satuan:'Kg', harga:40000, stokAwal:2, stokTerjual:0},
+  {kategori:'Bumbu Dapur', nama:'Tomat', satuan:'Kg', harga:8000, stokAwal:5, stokTerjual:0},
+  {kategori:'Lauk Pauk', nama:'Tahu', satuan:'Papan', harga:15000, stokAwal:10, stokTerjual:0},
+  {kategori:'Lauk Pauk', nama:'Tempe', satuan:'Papan', harga:15000, stokAwal:10, stokTerjual:0},
+  {kategori:'Lauk Pauk', nama:'Telur Ayam', satuan:'Kg', harga:28000, stokAwal:5, stokTerjual:0},
+  {kategori:'Sembako', nama:'Beras', satuan:'Kg', harga:13000, stokAwal:10, stokTerjual:0},
+  {kategori:'Sembako', nama:'Minyak Goreng', satuan:'Liter', harga:16000, stokAwal:10, stokTerjual:0},
+  {kategori:'Sembako', nama:'Gula Pasir', satuan:'Kg', harga:15000, stokAwal:10, stokTerjual:0},
+  {kategori:'Buah', nama:'Pisang', satuan:'Kg', harga:12000, stokAwal:5, stokTerjual:0},
+  {kategori:'Buah', nama:'Pepaya', satuan:'Kg', harga:8000, stokAwal:5, stokTerjual:0},
+  {kategori:'Olahan Siap Masak', nama:'Teri Kacang', satuan:'Pack', harga:12000, stokAwal:10, stokTerjual:0},
+  {kategori:'Olahan Siap Masak', nama:'Kerupuk Mentah', satuan:'Pack', harga:10000, stokAwal:10, stokTerjual:0},
+  {kategori:'Tambahan', nama:'Es Batu', satuan:'Kg', harga:4000, stokAwal:10, stokTerjual:0}
+];
+
+const KEY = 'mlijo_data_v1';
+let data = [];
+
+// util
+const \$ = id => document.getElementById(id);
+
+function formatRp(n){return 'Rp'+(Math.round(n)).toLocaleString('id-ID');}
+
+function load(){
+  const raw = localStorage.getItem(KEY);
+  if(raw){
+    try{ data = JSON.parse(raw); }
+    catch(e){ data = DEFAULT.slice(); }
+  } else data = DEFAULT.slice();
+}
+
+function save(){
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+function render(filter=''){
+  const tbody = document.querySelector('#tbl tbody'); tbody.innerHTML='';
+  let total = 0; let countSold=0; 
+  data.forEach((row,i)=>{
+    if(filter){
+      const q = filter.toLowerCase();
+      if(!(row.nama.toLowerCase().includes(q) || row.kategori.toLowerCase().includes(q))) return;
+    }
+    const stokAkhir = (row.stokAwal||0) - (row.stokTerjual||0);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i+1}</td>
+      <td><input type="text" value="${escapeHtml(row.kategori)}" data-key="kategori" data-i="${i}" /></td>
+      <td><input type="text" value="${escapeHtml(row.nama)}" data-key="nama" data-i="${i}" /></td>
+      <td><input type="text" value="${escapeHtml(row.satuan)}" data-key="satuan" data-i="${i}" /></td>
+      <td><input type="number" min="0" value="${row.harga||0}" data-key="harga" data-i="${i}" /></td>
+      <td><input type="number" min="0" value="${row.stokAwal||0}" data-key="stokAwal" data-i="${i}" /></td>
+      <td><input type="number" min="0" value="${row.stokTerjual||0}" data-key="stokTerjual" data-i="${i}" /></td>
+      <td>${stokAkhir}</td>
+      <td style="text-align:center"><input class="checkbox" type="checkbox" data-i="${i}" ${row._checked? 'checked':''} /></td>
+    `;
+    tbody.appendChild(tr);
+
+    total += (row.stokTerjual||0) * (row.harga||0);
+    countSold += Number(row.stokTerjual||0);
+  });
+  $('totalSales').innerText = formatRp(total);
+  $('countSold').innerText = countSold;
+  attachInputs();
+}
+
+function attachInputs(){
+  document.querySelectorAll('input[data-key]').forEach(inp=>{
+    inp.onchange = e => {
+      const i = Number(inp.dataset.i); const key = inp.dataset.key;
+      let val = inp.type==='number' ? Number(inp.value) : inp.value;
+      if(isNaN(val) && inp.type==='number') val = 0;
+      data[i][key] = val;
+      save(); render($('search').value);
+    }
+  });
+  document.querySelectorAll('.checkbox').forEach(cb=>{
+    cb.onchange = e => {
+      const i = Number(cb.dataset.i);
+      if(cb.checked){
+        // menandakan satu unit terjual — open to change: kita increment stokTerjual by 1
+        data[i].stokTerjual = (Number(data[i].stokTerjual)||0) + 1;
+      } else {
+        // undo satu unit terjual jika dicentang lagi
+        data[i].stokTerjual = Math.max(0, (Number(data[i].stokTerjual)||0) - 1);
+      }
+      save(); render($('search').value);
+    }
+  });
+  // checkbox double-click to mark multiple: not implemented
+}
+
+function escapeHtml(s){ return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;'); }
+
+// actions
+$('addRow').onclick = () => {
+  data.push({kategori:'Sayur', nama:'Barang Baru', satuan:'Pcs', harga:0, stokAwal:0, stokTerjual:0});
+  save(); render($('search').value);
+}
+$('save').onclick = () => { save(); alert('Data disimpan di browser (localStorage).'); }
+$('export').onclick = () => {
+  const blob = new Blob([JSON.stringify({date: $('date').value||new Date().toISOString().slice(0,10), data}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a'); a.href = url; a.download = 'mlijo_data_'+(new Date().toISOString().slice(0,10))+'.json'; a.click(); URL.revokeObjectURL(url);
+}
+$('importBtn').onclick = () => $('fileInput').click();
+$('fileInput').onchange = e => {
+  const f = e.target.files[0]; if(!f) return;
+  const reader = new FileReader(); reader.onload = ev=>{
+    try{
+      const parsed = JSON.parse(ev.target.result);
+      if(parsed.data) data = parsed.data; else if(Array.isArray(parsed)) data = parsed; else throw 'format salah';
+      save(); render($('search').value);
+      alert('Impor berhasil. Data telah diupdate');
+    }catch(err){ alert('Gagal impor: file bukan format valid'); }
+  }; reader.readAsText(f);
+}
+$('reset').onclick = () => { if(confirm('Reset ke data awal contoh?')){ data = DEFAULT.slice(); save(); render(); }}
+
+$('search').oninput = e => render(e.target.value);
+$('date').value = new Date().toISOString().slice(0,10);
+
+// init
+load(); render();
+</script>
+</body>
+</html>
